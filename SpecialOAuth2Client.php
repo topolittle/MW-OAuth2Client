@@ -173,13 +173,21 @@ class SpecialOAuth2Client extends SpecialPage {
 		}
 
 		$email =  JsonHelper::extractValue($response, $wgOAuth2Client['configuration']['email']);
+		if (substr(strrchr($email, '@'), 1) !== $wgOAuth2Client["configuration"]["domain"]) {
+				exit('User\'s email must be part of the ' . $wgOAuth2Client["configuration"]["domain"] . ' domain. E.g.: john.doe@' . $wgOAuth2Client["configuration"]["domain"] . '. Actual email: ' . $email);
+		}
+
 		# Get the username from the email address.
 		# Convert dots to spaces and capitalize first letter of each word.
 		# So, john.doe@example.com becomes 'John Doe' and john.doe2@example.com becomes 'John Doe2'.
 		# This avoid collisions with existing users with the same name since the email address will always be unique.
 		# This is not a perfect solution since it is not guaranteed to be unique when using two different email domains,
 		# but it works for most cases.
-		$username =	ucwords(str_replace('.',' ',substr( $email, 0, strpos($email, '@' ))));
+		$username = trim(ucwords(str_replace('.',' ',substr( $email, 0, strpos($email, '@' )))));
+		if (str_word_count($username) < 2) {
+				exit('User\'s email must contains at least a dot in the name. E.g.: john.doe@example.com. Actual email: ' . $email);
+		}
+
 		MediaWiki\MediaWikiServices::getInstance()->getHookContainer()->run("OAuth2ClientBeforeUserSave", [&$username, &$email, $response]);
 		$user = User::newFromName($username, 'creatable');
 		if (!$user) {
