@@ -143,8 +143,9 @@ class SpecialOAuth2Client extends SpecialPage {
 		$user = RequestContext::getMain()->getUser();
 		if ( !$user->isRegistered() ) {
 			$wgOut->addWikiMsg( 'oauth2client-you-can-login-to-this-wiki-with-oauth2', $service_name );
+			$wgOut->addHTML( '<a href="/index.php?title=' . $this->getPageTitle('redirect')->getPrefixedURL() . '"><img src="/extensions/MW-OAuth2Client/microsoft_logo.svg" height="32"/></a>' );
 			$wgOut->addWikiMsg( 'oauth2client-login-with-oauth2', $this->getPageTitle('redirect')->getPrefixedURL(), $service_name );
-
+			$wgOut->addHTML( '<a href="/index.php?title=Special:UserLogin&skip_wiki_oauth=1"><small>Use a local account instead</small></a>' );
 		} else {
 			$wgOut->addWikiMsg( 'oauth2client-youre-already-loggedin' );
 		}
@@ -171,8 +172,14 @@ class SpecialOAuth2Client extends SpecialPage {
 			throw new MWException($callback_failure_message);
 		}
 
-		$username = JsonHelper::extractValue($response, $wgOAuth2Client['configuration']['username']);
 		$email =  JsonHelper::extractValue($response, $wgOAuth2Client['configuration']['email']);
+		# Get the username from the email address.
+		# Convert dots to spaces and capitalize first letter of each word.
+		# So, john.doe@example.com becomes 'John Doe' and john.doe2@example.com becomes 'John Doe2'.
+		# This avoid collisions with existing users with the same name since the email address will always be unique.
+		# This is not a perfect solution since it is not guaranteed to be unique when using two different email domains,
+		# but it works for most cases.
+		$username =	ucwords(str_replace('.',' ',substr( $email, 0, strpos($email, '@' ))));
 		MediaWiki\MediaWikiServices::getInstance()->getHookContainer()->run("OAuth2ClientBeforeUserSave", [&$username, &$email, $response]);
 		$user = User::newFromName($username, 'creatable');
 		if (!$user) {
